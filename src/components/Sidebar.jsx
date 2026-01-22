@@ -15,9 +15,14 @@ const Sidebar = ({ isOpen, onClose }) => {
         }
     }, [isOpen]);
 
-    const handleSignOut = () => {
-        // Add sign out logic here (clear auth, etc.) if needed
-        navigate('/login');
+    const handleSignOut = async () => {
+        try {
+            await auth.signOut();
+            onClose();
+            navigate('/');
+        } catch (err) {
+            console.error("Sign out error:", err);
+        }
     };
 
     return (

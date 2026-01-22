@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { auth } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import LandingPage from './pages/LandingPage';
 import Onboarding from './pages/Onboarding';
 import Signup from './pages/Signup';
@@ -14,14 +16,16 @@ import './App.css';
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Simulate initial resource loading
-    const timer = setTimeout(() => {
+    // Listen for auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
       setIsLoading(false);
-    }, 2500);
+    });
 
-    return () => clearTimeout(timer);
+    return () => unsubscribe();
   }, []);
 
   if (isLoading) {
@@ -35,15 +39,21 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/home" element={<HomePage />} />
-        <Route path="/explore" element={<ExplorePage />} />
-        <Route path="/meditation" element={<MeditationPage />} />
-        <Route path="/sacred-sounds" element={<SacredSoundsPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/signup" element={user ? <Navigate to="/home" /> : <Signup />} />
+        <Route path="/login" element={user ? <Navigate to="/home" /> : <Login />} />
+
+        {/* Protected Routes */}
+        <Route path="/home" element={user ? <HomePage /> : <Navigate to="/login" />} />
+        <Route path="/explore" element={user ? <ExplorePage /> : <Navigate to="/login" />} />
+        <Route path="/meditation" element={user ? <MeditationPage /> : <Navigate to="/login" />} />
+        <Route path="/sacred-sounds" element={user ? <SacredSoundsPage /> : <Navigate to="/login" />} />
+        <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/login" />} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
   );
