@@ -2,7 +2,7 @@
 
 Ritam is a premium, holistic meditation platform designed to help users elevate their minds and awaken inner serenity. Built with a focus on aesthetics and user experience, it provides a curated collection of meditations, sacred sounds, and wellness tools in a beautiful, immersive interface.
 
-🔗 **Live Demo:** [https://krishi-sevak-a994f.web.app](https://krishi-sevak-a994f.web.app)
+🔗 **Live Demo:** [https://ritam-web-app.web.app](https://ritam-web-app.web.app)
 
 ## 🌟 Key Features
 
