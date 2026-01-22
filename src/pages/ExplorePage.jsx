@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Menu, Play, Moon, Sun, Zap, Heart, Shield, Music, Layers, Hand, MoveRight, CornerDownRight, Flower, Wind, Sparkles, Smile, Focus, ChevronRight, X, Headphones, Activity } from 'lucide-react';
 import BottomNavigation from '../components/BottomNavigation';
 import Sidebar from '../components/Sidebar';
+import logo from '../assets/ritam_logo.jpg';
 import '../App.css';
 
 function ExplorePage() {
@@ -18,7 +19,7 @@ function ExplorePage() {
                     </button>
                 </div>
                 <div className="header-center" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <img src="/ritam_logo.jpg" alt="Ritam Logo" style={{ height: '32px', width: 'auto', borderRadius: '50%' }} />
+                    <img src={logo} alt="Ritam Logo" style={{ height: '32px', width: 'auto', borderRadius: '50%' }} />
                     <h1 className="logo-script" style={{ margin: 0, fontSize: '1.8rem' }}>Ritam</h1>
                 </div>
                 <div className="header-right"></div>

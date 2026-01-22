@@ -2,6 +2,7 @@ import React from 'react';
 import { Play, Music, BarChart2, Calendar, Clock, Globe, Heart, Activity, Wind, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+import logo from '../assets/ritam_logo.jpg';
 import '../App.css';
 import '../mobile.css';
 
@@ -13,7 +14,7 @@ function LandingPage() {
             <nav className="navbar glass-panel">
                 <div className="container nav-content">
                     <div className="logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <img src="/ritam_logo.jpg" alt="Ritam Logo" style={{ height: '32px', width: 'auto', borderRadius: '50%' }} />
+                        <img src={logo} alt="Ritam Logo" style={{ height: '32px', width: 'auto', borderRadius: '50%' }} />
                         <h1 className="logo-script" style={{ margin: 0, fontSize: '1.5rem', color: 'white' }}>Ritam</h1>
                     </div>
                     <button className="btn-skip" onClick={() => navigate('/onboarding')}>Skip</button>
