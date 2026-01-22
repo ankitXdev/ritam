@@ -3,6 +3,7 @@ import { Play, Music, BarChart2, Calendar, Clock, Globe, Heart, Activity, Wind, 
 import { useNavigate } from 'react-router-dom';
 
 import logo from '../assets/ritam_logo.jpg';
+import guruImg from '../assets/meditating_guru.jpg';
 import '../App.css';
 import '../mobile.css';
 
@@ -47,7 +48,7 @@ function LandingPage() {
                                 border: '4px solid rgba(255,255,255,0.2)',
                                 boxShadow: '0 0 40px rgba(124, 58, 237, 0.6)'
                             }}>
-                                <img src="/meditating_guru.jpg" alt="Meditating Guru" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <img src={guruImg} alt="Meditating Guru" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             </div>
                         </div>
                     </div>
