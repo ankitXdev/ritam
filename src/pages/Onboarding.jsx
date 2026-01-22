@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Flower, Moon, Activity, Circle, Grid } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import logo from '../assets/Gemini_Generated_Image_kv9dwlkv9dwlkv9d.svg';
+import logo from '../assets/ritam_logo.jpg';
 import '../App.css';
 
 function Onboarding() {
