@@ -55,7 +55,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                         <span>Downloads</span>
                     </div>
 
-                    <div className="menu-item mt-auto" onClick={handleSignOut} style={{ marginBottom: '40px' }}>
+                    <div className="menu-item mt-auto" onClick={handleSignOut}>
                         <LogOut size={24} />
                         <span className="sign-out-text">Sign Out</span>
                     </div>
