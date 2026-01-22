@@ -96,14 +96,14 @@ graph TD
 
 ### ☁️ Deployment
 
-The project is configured for Firebase Hosting.
+The project is configured for Firebase Hosting. You can build and deploy the application in a single step using the custom script:
 
 ```bash
-# Login to Firebase
+# Login to Firebase (First time only)
 npx firebase login
 
-# Deploy to live site
-npx firebase deploy
+# Build and Deploy to live site
+npm run deploy-live
 ```
 
 ## 📄 License
