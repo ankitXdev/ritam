@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Smartphone, Facebook, Chrome, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { Smartphone, Facebook, Chrome, ArrowLeft, Eye, EyeOff, LayoutPanelTop } from 'lucide-react';
 import { auth } from '../firebase';
 import {
     signInWithEmailAndPassword,
     GoogleAuthProvider,
+    FacebookAuthProvider,
+    OAuthProvider,
     signInWithPopup,
     RecaptchaVerifier,
-    signInWithPhoneNumber
+    signInWithPhoneNumber,
+    sendPasswordResetEmail
 } from 'firebase/auth';
 import '../App.css';
 
@@ -23,6 +26,21 @@ function Login() {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [otp, setOtp] = useState('');
     const [verificationResult, setVerificationResult] = useState(null);
+    const [resetSent, setResetSent] = useState(false);
+
+    const handleForgotPassword = async () => {
+        if (!email) {
+            setError("Please enter your email address first to reset your password.");
+            return;
+        }
+        try {
+            setError('');
+            await sendPasswordResetEmail(auth, email);
+            setResetSent(true);
+        } catch (err) {
+            setError(err.message);
+        }
+    };
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -41,6 +59,28 @@ function Login() {
     const handleGoogleLogin = async () => {
         setError('');
         const provider = new GoogleAuthProvider();
+        try {
+            await signInWithPopup(auth, provider);
+            navigate('/home', { replace: true });
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    const handleFacebookLogin = async () => {
+        setError('');
+        const provider = new FacebookAuthProvider();
+        try {
+            await signInWithPopup(auth, provider);
+            navigate('/home', { replace: true });
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    const handleAppleLogin = async () => {
+        setError('');
+        const provider = new OAuthProvider('apple.com');
         try {
             await signInWithPopup(auth, provider);
             navigate('/home', { replace: true });
@@ -99,6 +139,7 @@ function Login() {
                 <h1 className="auth-title">{isPhoneLogin ? 'Phone Login' : 'Welcome Back'}</h1>
 
                 {error && <p style={{ color: 'red', marginBottom: '10px' }}>{error}</p>}
+                {resetSent && <p style={{ color: 'green', marginBottom: '10px' }}>Password reset email sent! Please check your inbox.</p>}
 
                 {!isPhoneLogin ? (
                     <form className="auth-form" onSubmit={handleLogin}>
@@ -133,7 +174,9 @@ function Login() {
 
                         <button type="submit" className="btn-submit-login">Log in</button>
 
-                        <button type="button" className="btn-forgot-pass">Forgot Password?</button>
+                        <button type="button" className="btn-forgot-pass" onClick={handleForgotPassword}>
+                            Forgot Password?
+                        </button>
                     </form>
                 ) : (
                     <form className="auth-form" onSubmit={handlePhoneLoginSubmit}>
@@ -177,9 +220,14 @@ function Login() {
                         </button>
                     )}
 
-                    <button className="btn-auth btn-blue" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                    <button className="btn-auth btn-blue" onClick={handleFacebookLogin}>
                         <Facebook className="auth-icon" />
                         Continue with Facebook
+                    </button>
+
+                    <button className="btn-auth btn-black" onClick={handleAppleLogin} style={{ backgroundColor: '#000', color: '#fff' }}>
+                        <LayoutPanelTop className="auth-icon" />
+                        Continue with Apple
                     </button>
 
                     <button className="btn-auth btn-white" onClick={handleGoogleLogin}>

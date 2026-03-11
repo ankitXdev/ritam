@@ -1,11 +1,63 @@
 import React, { useState } from 'react';
-import { Menu, ChevronRight, BarChart2, Calendar, Award, Rss, FileText, PlusCircle, Clock, Gift, Users, Flag, Bell, Sticker, PlaySquare, Heart } from 'lucide-react';
+import { Menu, ChevronRight, BarChart2, Calendar, Award, Rss, FileText, PlusCircle, Clock, Gift, Users, Flag, Bell, Sticker, PlaySquare, Heart, Camera } from 'lucide-react';
 import BottomNavigation from '../components/BottomNavigation';
 import Sidebar from '../components/Sidebar';
+import { db, auth, storage } from '../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import '../App.css';
 
 function ProfilePage() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [userData, setUserData] = useState({ name: 'Seeker', photoURL: null });
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = React.useRef(null);
+
+    React.useEffect(() => {
+        const fetchUser = async () => {
+            if (auth.currentUser) {
+                const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    setUserData({
+                        name: data.email ? data.email.split('@')[0] : (auth.currentUser.email ? auth.currentUser.email.split('@')[0] : 'Seeker'),
+                        photoURL: data.photoURL || auth.currentUser.photoURL || null
+                    });
+                } else {
+                    setUserData({
+                        name: auth.currentUser.email ? auth.currentUser.email.split('@')[0] : 'Seeker',
+                        photoURL: auth.currentUser.photoURL || null
+                    });
+                }
+            }
+        };
+        fetchUser();
+    }, []);
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !auth.currentUser) return;
+
+        setUploading(true);
+        try {
+            const storageRef = ref(storage, `avatars/${auth.currentUser.uid}`);
+            await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(storageRef);
+
+            // Update state
+            setUserData(prev => ({ ...prev, photoURL: downloadURL }));
+
+            // Save to Firestore using setDoc with merge to create document if it doesn't exist
+            await setDoc(doc(db, "users", auth.currentUser.uid), {
+                photoURL: downloadURL,
+                email: auth.currentUser.email || ''
+            }, { merge: true });
+        } catch (error) {
+            console.error("Error uploading image: ", error);
+        } finally {
+            setUploading(false);
+        }
+    };
 
     return (
         <div className="app profile-page">
@@ -23,6 +75,41 @@ function ProfilePage() {
             </header>
 
             <main className="profile-content">
+                {/* Profile Header Block */}
+                <section className="profile-header-block section-container" style={{ textAlign: 'center', margin: '20px 0' }}>
+                    <div 
+                        className="avatar-container" 
+                        style={{ position: 'relative', display: 'inline-block', width: '100px', height: '100px', marginBottom: '10px' }}
+                        onClick={() => fileInputRef.current.click()}
+                    >
+                        {userData.photoURL ? (
+                            <img 
+                                src={userData.photoURL} 
+                                alt="Profile" 
+                                style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #6366f1' }}
+                            />
+                        ) : (
+                            <div style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid #6366f1' }}>
+                                <span style={{ fontSize: '2rem', color: 'white', fontWeight: 'bold' }}>
+                                    {userData.name.charAt(0).toUpperCase()}
+                                </span>
+                            </div>
+                        )}
+                        <div style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: '#fbbf24', borderRadius: '50%', padding: '6px', cursor: 'pointer', display: 'flex' }}>
+                            <Camera size={16} color="black" />
+                        </div>
+                        <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            onChange={handleImageUpload} 
+                            accept="image/*" 
+                            style={{ display: 'none' }} 
+                        />
+                    </div>
+                    {uploading && <p style={{ color: '#fbbf24', fontSize: '0.8rem' }}>Uploading...</p>}
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: '600', margin: 0 }}>Good Evening, {userData.name}</h2>
+                </section>
+
                 {/* Invite Card */}
                 <section className="section-container">
                     <div className="invite-card">

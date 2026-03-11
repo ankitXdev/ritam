@@ -1,71 +1,44 @@
-import React, { useState } from 'react';
-import { Menu, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Menu, Search, Loader2 } from 'lucide-react';
 import BottomNavigation from '../components/BottomNavigation';
 import Sidebar from '../components/Sidebar';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
+import { useAudio } from '../context/AudioContext';
 import '../App.css';
 
 function SacredSoundsPage() {
+    const { playTrack } = useAudio();
     const [activeFilter, setActiveFilter] = useState('All');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [chants, setChants] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const filters = ['All', 'Popular', 'Short', 'Medium', 'Long'];
 
-    const chants = [
-        {
-            title: "DIVINE ARMOUR",
-            subtitle: "Devi Kavacham",
-            time: "15 Mins",
-            colorClass: "bg-divine-blue"
-        },
-        {
-            title: "The Most Powerful Chant",
-            subtitle: "Rudram",
-            time: "38 Mins",
-            colorClass: "bg-rudram-purple"
-        },
-        {
-            title: "Overall Wellbeing",
-            subtitle: "Om Namah Shivaya",
-            time: "13 Mins",
-            colorClass: "bg-shiva-blue"
-        },
-        {
-            title: "SHARPEN INTELLECT",
-            subtitle: "Om Namo Bhagavate Vasudevaya",
-            time: "6 Mins",
-            colorClass: "bg-krishna-green"
-        },
-        {
-            title: "Surrender & Guidance",
-            subtitle: "Guru Paduka Stotram",
-            time: "7 Mins",
-            colorClass: "bg-guru-pink"
-        },
-        {
-            title: "OVERALL WELLBEING",
-            subtitle: "Om Namah Shivaya (Meditative)",
-            time: "25 Mins",
-            colorClass: "bg-meditative-purple"
-        },
-        {
-            title: "Miraculous Power",
-            subtitle: "Hanuman Chalisa",
-            time: "9 Mins",
-            colorClass: "bg-hanuman-orange"
-        },
-        {
-            title: "Sri Vishnu Sahasranamam",
-            subtitle: "Positive Vibrations",
-            time: "34 Mins",
-            colorClass: "bg-vishnu-purple"
-        },
-        {
-            title: "Blessings of the Sun",
-            subtitle: "Sri Aditya Hrudayam",
-            time: "6 Mins",
-            colorClass: "bg-sun-yellow"
-        },
-    ];
+    useEffect(() => {
+        const fetchChants = async () => {
+            try {
+                const querySnapshot = await getDocs(collection(db, "sacred_sounds"));
+                const chantsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setChants(chantsData);
+            } catch (error) {
+                console.error("Error fetching sacred sounds:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchChants();
+    }, []);
+
+    const filteredChants = chants.filter(chant => {
+        const matchesFilter = activeFilter === 'All' || (chant.categories && chant.categories.includes(activeFilter));
+        const matchesSearch = chant.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                              (chant.subtitle && chant.subtitle.toLowerCase().includes(searchQuery.toLowerCase()));
+        return matchesFilter && matchesSearch;
+    });
 
     return (
         <div className="app sacred-page">
@@ -77,7 +50,13 @@ function SacredSoundsPage() {
                 </button>
                 <div className="search-bar">
                     <Search size={20} className="search-icon" />
-                    <input type="text" placeholder="Search" className="search-input" />
+                    <input 
+                        type="text" 
+                        placeholder="Search" 
+                        className="search-input" 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                 </div>
             </header>
 
@@ -126,22 +105,43 @@ function SacredSoundsPage() {
                         Vedic Mantras and Chants are powerful repetitive sound vibrations that allow your mind to dissolve and repose.
                     </p>
 
-                    <div className="meditation-grid">
-                        {chants.map((chant, index) => (
-                            <div className="meditation-grid-card" key={index}>
-                                <div className={`grid-card-bg ${chant.colorClass}`}>
-                                    {/* Optional: Add decorative overlays here if consistent graphics needed */}
-                                </div>
-                                <div className="grid-card-content center-content">
-                                    <span className="time-badge">{chant.time}</span>
-                                    <div className="chant-titles">
-                                        <h4 className="chant-main-title">{chant.title}</h4>
-                                        <p className="chant-subtitle">{chant.subtitle}</p>
+                    {loading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+                            <Loader2 className="animate-spin" size={32} color="white" />
+                        </div>
+                    ) : filteredChants.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.6)' }}>
+                            <p>No sacred sounds found.</p>
+                        </div>
+                    ) : (
+                        <div className="meditation-grid">
+                            {filteredChants.map((chant) => (
+                                <div 
+                                    className="meditation-grid-card" 
+                                    key={chant.id}
+                                    onClick={() => playTrack({
+                                        id: chant.id,
+                                        title: chant.title,
+                                        subtitle: chant.subtitle || 'Sacred Chant',
+                                        audioUrl: chant.audioUrl || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', // Fallback for testing
+                                        imageUrl: chant.imageUrl
+                                    })}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    <div className={`grid-card-bg ${chant.colorClass}`}>
+                                        {/* Optional: Add decorative overlays here if consistent graphics needed */}
+                                    </div>
+                                    <div className="grid-card-content center-content">
+                                        <span className="time-badge">{chant.time}</span>
+                                        <div className="chant-titles">
+                                            <h4 className="chant-main-title">{chant.title}</h4>
+                                            <p className="chant-subtitle">{chant.subtitle}</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </section>
 
                 <div className="spacer-bottom"></div>
@@ -153,3 +153,4 @@ function SacredSoundsPage() {
 }
 
 export default SacredSoundsPage;
+

@@ -1,17 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Menu, Bell, Search, ChevronDown, Calendar, ArrowRight, X, Plus, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import BottomNavigation from '../components/BottomNavigation';
 import Sidebar from '../components/Sidebar';
 import TiltCardGrid from '../components/TiltCardGrid';
 import EventRegistrationModal from '../components/EventRegistrationModal';
 import logo from '../assets/ritam_logo.jpg';
+import { db, auth } from '../firebase';
+import { doc, getDoc, collection, getDocs, setDoc } from 'firebase/firestore';
+import { updatePlayerStreak } from '../utils/habitUtils';
+import MilestoneModal from '../components/MilestoneModal';
 import '../App.css';
 
 function HomePage() {
+    const navigate = useNavigate();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isStreakExpanded, setIsStreakExpanded] = useState(false);
     const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-    const [currentStreak, setCurrentStreak] = useState(9); // Simulating 10 day streak
+    const [photoURL, setPhotoURL] = useState(null);
+    const [currentStreak, setCurrentStreak] = useState(0); 
+    const [isMilestoneModalOpen, setIsMilestoneModalOpen] = useState(false);
+    const [recommendedTools, setRecommendedTools] = useState([]);
+    const [firstName, setFirstName] = useState("Seeker");
 
     const scrollContainerRef = useRef(null);
     const scrollIntervalRef = useRef(null);
@@ -45,6 +55,84 @@ function HomePage() {
         return () => {
             if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current);
         };
+    }, []);
+
+    // Recommendation Engine & User Data
+    useEffect(() => {
+        const fetchUserDataAndRecommendations = async () => {
+            if (!auth.currentUser) return;
+            try {
+                // Fetch User Profile
+                const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+                let userGoals = ['popular'];
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    if (data.goals && data.goals.length > 0) {
+                        userGoals = data.goals;
+                    }
+                    if (data.photoURL) {
+                        setPhotoURL(data.photoURL);
+                    }
+                    
+                    // Improved Name Logic
+                    const rawEmail = data.email || auth.currentUser.email || "";
+                    const nameFromEmail = rawEmail.split('@')[0] || "";
+                    const rawName = data.firstName || nameFromEmail || "Seeker";
+                    
+                    // Clean up: ankit.sharma -> Ankit
+                    const cleanName = rawName.split('.')[0].split('_')[0];
+                    setFirstName(cleanName.charAt(0).toUpperCase() + cleanName.slice(1));
+                } else if (auth.currentUser.email) {
+                    const fallback = auth.currentUser.email.split('@')[0].split('.')[0];
+                    setFirstName(fallback.charAt(0).toUpperCase() + fallback.slice(1));
+                }
+
+                // Map onboarding goal IDs to content categories
+                const goalMap = {
+                    'stress': 'Anxiety',
+                    'sleep': 'Sleep',
+                    'meditation': 'Beginners',
+                    'happiness': 'Popular',
+                    'popular': 'Popular'
+                };
+                
+                const mappedCategories = userGoals.map(g => goalMap[g]).filter(Boolean);
+
+                // Fetch Meditations
+                const medSnapshot = await getDocs(collection(db, "meditations"));
+                const allMeds = medSnapshot.docs.map(d => ({id: d.id, ...d.data()}));
+
+                // Score matches
+                const scoredMeds = allMeds.map(med => {
+                    let score = 0;
+                    if (med.categories) {
+                        med.categories.forEach(cat => {
+                            if (mappedCategories.includes(cat)) score += 2;
+                            if (cat === 'Popular') score += 1;
+                        });
+                    }
+                    return { ...med, score };
+                });
+
+                scoredMeds.sort((a, b) => b.score - a.score);
+                setRecommendedTools(scoredMeds.slice(0, 3)); // Top 3 recommendations
+
+                // Update Streak
+                const streakData = await updatePlayerStreak(auth.currentUser.uid);
+                if (streakData) {
+                    setCurrentStreak(streakData.streak);
+                    if (streakData.isNewMilestone) {
+                        setIsMilestoneModalOpen(true);
+                    }
+                }
+
+            } catch (err) {
+                console.error("Error fetching data: ", err);
+            }
+        };
+
+        // Small delay to ensure auth is loaded for this simple architecture
+        setTimeout(fetchUserDataAndRecommendations, 1000);
     }, []);
 
     const scrollLeft = () => {
@@ -86,11 +174,15 @@ function HomePage() {
                 <section className="greeting-section">
                     <div className="greeting-text">
                         <h2>Good Evening</h2>
-                        <h2>Ankit</h2>
+                        <h2>{firstName}</h2>
                     </div>
-                    <div className="user-status-ring">
+                    <div className="user-status-ring" onClick={() => navigate('/profile')} style={{ cursor: 'pointer' }}>
                         <div className="ring-content">
-                            <span>A</span>
+                            {photoURL ? (
+                                <img src={photoURL} alt="User" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                            ) : (
+                                <span>{firstName.charAt(0)}</span>
+                            )}
                             <span className="badge-new">New</span>
                         </div>
                         {/* SVG Ring simplified representation */}
@@ -119,8 +211,8 @@ function HomePage() {
                             }}
                         />
                     </div>
-                    <h3>10 Days. One Tree.</h3>
-                    <p>Meditate for 10 consecutive days, and we'll plant a tree on your behalf.</p>
+                    <h3>{currentStreak} Days. {Math.floor(currentStreak / 10)} Trees.</h3>
+                    <p>{currentStreak % 10 === 0 && currentStreak > 0 ? "You've earned a tree! Keep going to plant more." : `Meditate for ${10 - (currentStreak % 10)} more days to plant your next tree.`}</p>
                     <p className="streak-subtext">Your inner journey now creates real-world impact.</p>
 
                     {/* SVG Path Visualization */}
@@ -151,65 +243,65 @@ function HomePage() {
                             {/* Steps - Bottom Row (Right to Left) */}
                             {/* Start Node */}
                             <g transform="translate(300, 190)">
-                                <circle cx="0" cy="0" r="12" fill="#4c1d95" stroke="white" strokeWidth="2" />
+                                <circle cx="0" cy="0" r="12" fill={currentStreak >= 1 ? "#fbbf24" : "#4c1d95"} stroke="white" strokeWidth="2" className={currentStreak >= 1 ? "node-active" : ""} />
                                 <circle cx="0" cy="0" r="6" fill="white" />
-                                <text x="0" y="30" textAnchor="middle" fill="white" fontSize="12" fontWeight="600">Start</text>
+                                <text x="0" y="35" textAnchor="middle" fill="white" fontSize="12" fontWeight="600">Start</text>
                             </g>
 
                             {/* Node 2 */}
                             <g transform="translate(220, 190)">
-                                <circle cx="0" cy="0" r="10" fill="#5b21b6" stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
-                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="10" fontWeight="600">2</text>
+                                <circle cx="0" cy="0" r="10" fill={currentStreak >= 2 ? "#fbbf24" : "#5b21b6"} stroke={currentStreak >= 2 ? "white" : "rgba(255,255,255,0.5)"} strokeWidth="2" className={currentStreak >= 2 ? "node-active" : ""} />
+                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill={currentStreak >= 2 ? "black" : "white"} fontSize="10" fontWeight="600">2</text>
                             </g>
 
                             {/* Node 3 */}
                             <g transform="translate(140, 190)">
-                                <circle cx="0" cy="0" r="10" fill="#5b21b6" stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
-                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="10" fontWeight="600">3</text>
+                                <circle cx="0" cy="0" r="10" fill={currentStreak >= 3 ? "#fbbf24" : "#5b21b6"} stroke={currentStreak >= 3 ? "white" : "rgba(255,255,255,0.5)"} strokeWidth="2" className={currentStreak >= 3 ? "node-active" : ""} />
+                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill={currentStreak >= 3 ? "black" : "white"} fontSize="10" fontWeight="600">3</text>
                             </g>
 
                             {/* Node 4 */}
                             <g transform="translate(60, 190)">
-                                <circle cx="0" cy="0" r="10" fill="#5b21b6" stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
-                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="10" fontWeight="600">4</text>
+                                <circle cx="0" cy="0" r="10" fill={currentStreak >= 4 ? "#fbbf24" : "#5b21b6"} stroke={currentStreak >= 4 ? "white" : "rgba(255,255,255,0.5)"} strokeWidth="2" className={currentStreak >= 4 ? "node-active" : ""} />
+                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill={currentStreak >= 4 ? "black" : "white"} fontSize="10" fontWeight="600">4</text>
                             </g>
 
                             {/* Middle Row (Left to Right) */}
                             {/* Node 5 */}
                             <g transform="translate(60, 135)">
-                                <circle cx="0" cy="0" r="10" fill="#6d28d9" stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
-                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="10" fontWeight="600">5</text>
+                                <circle cx="0" cy="0" r="10" fill={currentStreak >= 5 ? "#fbbf24" : "#6d28d9"} stroke={currentStreak >= 5 ? "white" : "rgba(255,255,255,0.5)"} strokeWidth="2" className={currentStreak >= 5 ? "node-active" : ""} />
+                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill={currentStreak >= 5 ? "black" : "white"} fontSize="10" fontWeight="600">5</text>
                             </g>
 
                             {/* Node 6 */}
                             <g transform="translate(140, 135)">
-                                <circle cx="0" cy="0" r="10" fill="#6d28d9" stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
-                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="10" fontWeight="600">6</text>
+                                <circle cx="0" cy="0" r="10" fill={currentStreak >= 6 ? "#fbbf24" : "#6d28d9"} stroke={currentStreak >= 6 ? "white" : "rgba(255,255,255,0.5)"} strokeWidth="2" className={currentStreak >= 6 ? "node-active" : ""} />
+                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill={currentStreak >= 6 ? "black" : "white"} fontSize="10" fontWeight="600">6</text>
                             </g>
 
                             {/* Node 7 */}
                             <g transform="translate(220, 135)">
-                                <circle cx="0" cy="0" r="10" fill="#6d28d9" stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
-                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="10" fontWeight="600">7</text>
+                                <circle cx="0" cy="0" r="10" fill={currentStreak >= 7 ? "#fbbf24" : "#6d28d9"} stroke={currentStreak >= 7 ? "white" : "rgba(255,255,255,0.5)"} strokeWidth="2" className={currentStreak >= 7 ? "node-active" : ""} />
+                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill={currentStreak >= 7 ? "black" : "white"} fontSize="10" fontWeight="600">7</text>
                             </g>
 
                             {/* Top Row (Right to Left) */}
                             {/* Node 8 */}
                             <g transform="translate(300, 80)">
-                                <circle cx="0" cy="0" r="10" fill="#7c3aed" stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
-                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="10" fontWeight="600">8</text>
+                                <circle cx="0" cy="0" r="10" fill={currentStreak >= 8 ? "#fbbf24" : "#7c3aed"} stroke={currentStreak >= 8 ? "white" : "rgba(255,255,255,0.5)"} strokeWidth="2" className={currentStreak >= 8 ? "node-active" : ""} />
+                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill={currentStreak >= 8 ? "black" : "white"} fontSize="10" fontWeight="600">8</text>
                             </g>
 
                             {/* Node 9 */}
                             <g transform="translate(220, 80)">
-                                <circle cx="0" cy="0" r="10" fill="#7c3aed" stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
-                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="10" fontWeight="600">9</text>
+                                <circle cx="0" cy="0" r="10" fill={currentStreak >= 9 ? "#fbbf24" : "#7c3aed"} stroke={currentStreak >= 9 ? "white" : "rgba(255,255,255,0.5)"} strokeWidth="2" className={currentStreak >= 9 ? "node-active" : ""} />
+                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill={currentStreak >= 9 ? "black" : "white"} fontSize="10" fontWeight="600">9</text>
                             </g>
 
                             {/* Node 10 */}
                             <g transform="translate(140, 80)">
-                                <circle cx="0" cy="0" r="10" fill="#7c3aed" stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
-                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="10" fontWeight="600">10</text>
+                                <circle cx="0" cy="0" r="10" fill={currentStreak >= 10 ? "#fbbf24" : "#7c3aed"} stroke={currentStreak >= 10 ? "white" : "rgba(255,255,255,0.5)"} strokeWidth="2" className={currentStreak >= 10 ? "node-active" : ""} />
+                                <text x="0" y="0" dominantBaseline="central" textAnchor="middle" fill={currentStreak >= 10 ? "black" : "white"} fontSize="10" fontWeight="600">10</text>
                             </g>
 
                             {/* Tree Icon Area */}
@@ -326,34 +418,23 @@ function HomePage() {
                             <button className="btn-continue-white">Join</button>
                         </div>
 
-                        {/* Card 4: Surrender & Guidance (Track) */}
-                        <div className="card-container rec-card track-card">
-                            <div className="track-info">
-                                <h3 className="track-title">Surrender & Guidance</h3>
-                                <p className="track-sub">Sacred Sound • Guru Paduka Stotram</p>
-                                <div className="track-stats">
-                                    <Users size={12} /> 1069 Meditators
+                        {/* Recommended Dynamic Cards */}
+                        {recommendedTools.map((tool) => (
+                            <div key={tool.id} className="card-container rec-card track-card">
+                                <div className="track-info">
+                                    <h3 className="track-title">{tool.title}</h3>
+                                    <p className="track-sub">Meditation • {tool.time}</p>
+                                    <div className="track-stats">
+                                        <Users size={12} /> {(Math.random() * 2000 + 500).toFixed(0)} Meditators
+                                    </div>
+                                </div>
+                                <div className={`track-thumb ${tool.colorClass?.includes('pink') ? 'pink-box' : 'blue-box'}`}>
+                                    <div className="track-overlay-text">
+                                        Personalized<br />For You
+                                    </div>
                                 </div>
                             </div>
-                            <div className="track-thumb pink-box">
-                                <div className="track-overlay-text">
-                                    Surrender &<br />Guidance
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Card 5: Relax and Let Go (Track) */}
-                        <div className="card-container rec-card track-card">
-                            <div className="track-info">
-                                <h3 className="track-title">Relax and Let Go</h3>
-                                <p className="track-sub">Meditation • 1069 Meditators</p>
-                            </div>
-                            <div className="track-thumb blue-box">
-                                <div className="track-overlay-text">
-                                    Relax &<br />Let Go
-                                </div>
-                            </div>
-                        </div>
+                        ))}
 
                     </div>
                 </section>
@@ -398,6 +479,11 @@ function HomePage() {
 
             <BottomNavigation />
             <EventRegistrationModal isOpen={isEventModalOpen} onClose={() => setIsEventModalOpen(false)} />
+            <MilestoneModal 
+                isOpen={isMilestoneModalOpen} 
+                onClose={() => setIsMilestoneModalOpen(false)} 
+                milestone={currentStreak}
+            />
         </div>
     );
 }

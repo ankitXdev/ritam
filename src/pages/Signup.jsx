@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Smartphone, Facebook, Chrome, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { Mail, Smartphone, Facebook, Chrome, ArrowLeft, Eye, EyeOff, LayoutPanelTop } from 'lucide-react';
 import { auth } from '../firebase';
 import {
     createUserWithEmailAndPassword,
     GoogleAuthProvider,
+    FacebookAuthProvider,
+    OAuthProvider,
     signInWithPopup,
     RecaptchaVerifier,
     signInWithPhoneNumber
 } from 'firebase/auth';
+import { db } from '../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import '../App.css';
 
 function Signup() {
@@ -24,11 +28,33 @@ function Signup() {
     const [otp, setOtp] = useState('');
     const [verificationResult, setVerificationResult] = useState(null);
 
+    const saveUserGoals = async (user) => {
+        try {
+            const goals = localStorage.getItem('ritam_user_goals');
+            const dataToSave = {
+                email: user.email || '',
+                phoneNumber: user.phoneNumber || '',
+                createdAt: new Date().toISOString(),
+                streak: 0,
+                mindfulMinutes: 0
+            };
+            if (goals) {
+                dataToSave.goals = JSON.parse(goals);
+                localStorage.removeItem('ritam_user_goals');
+            }
+            // Save to Firestore 'users' collection using UID
+            await setDoc(doc(db, "users", user.uid), dataToSave, { merge: true });
+        } catch (err) {
+            console.error("Error saving user data:", err);
+        }
+    };
+
     const handleEmailSignup = async (e) => {
         e.preventDefault();
         setError('');
         try {
-            await createUserWithEmailAndPassword(auth, email, password);
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            await saveUserGoals(userCredential.user);
             navigate('/home', { replace: true });
         } catch (err) {
             setError(err.message);
@@ -39,7 +65,32 @@ function Signup() {
         setError('');
         const provider = new GoogleAuthProvider();
         try {
-            await signInWithPopup(auth, provider);
+            const userCredential = await signInWithPopup(auth, provider);
+            await saveUserGoals(userCredential.user);
+            navigate('/home', { replace: true });
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    const handleFacebookSignup = async () => {
+        setError('');
+        const provider = new FacebookAuthProvider();
+        try {
+            const userCredential = await signInWithPopup(auth, provider);
+            await saveUserGoals(userCredential.user);
+            navigate('/home', { replace: true });
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    const handleAppleSignup = async () => {
+        setError('');
+        const provider = new OAuthProvider('apple.com');
+        try {
+            const userCredential = await signInWithPopup(auth, provider);
+            await saveUserGoals(userCredential.user);
             navigate('/home', { replace: true });
         } catch (err) {
             setError(err.message);
@@ -71,7 +122,8 @@ function Signup() {
             }
         } else {
             try {
-                await verificationResult.confirm(otp);
+                const userCredential = await verificationResult.confirm(otp);
+                await saveUserGoals(userCredential.user);
                 navigate('/home', { replace: true });
             } catch (err) {
                 setError("Invalid OTP");
@@ -116,9 +168,14 @@ function Signup() {
                             Continue with Phone Number
                         </button>
 
-                        <button className="btn-auth btn-blue" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                        <button className="btn-auth btn-blue" onClick={handleFacebookSignup}>
                             <Facebook className="auth-icon" />
                             Continue with Facebook
+                        </button>
+
+                        <button className="btn-auth btn-black" onClick={handleAppleSignup} style={{ backgroundColor: '#000', color: '#fff' }}>
+                            <LayoutPanelTop className="auth-icon" />
+                            Continue with Apple
                         </button>
 
                         <button className="btn-auth btn-white" onClick={handleGoogleSignup}>

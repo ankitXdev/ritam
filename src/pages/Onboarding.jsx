@@ -79,7 +79,10 @@ function Onboarding() {
                     ))}
                 </div>
 
-                <button className="btn-continue" onClick={() => navigate('/signup')}>
+                <button className="btn-continue" onClick={() => {
+                    localStorage.setItem('ritam_user_goals', JSON.stringify(selectedGoals));
+                    navigate('/signup');
+                }}>
                     Continue
                 </button>
             </main>

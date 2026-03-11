@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
-import { PlayCircle, Radio, Globe, SlidersHorizontal, Download, LogOut } from 'lucide-react';
+import { PlayCircle, Radio, Globe, SlidersHorizontal, Download, LogOut, Database } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { auth } from '../firebase';
+import { signOut } from 'firebase/auth';
 import '../App.css';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -17,7 +19,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
     const handleSignOut = async () => {
         try {
-            await auth.signOut();
+            await signOut(auth);
             onClose();
             navigate('/');
         } catch (err) {
@@ -58,6 +60,11 @@ const Sidebar = ({ isOpen, onClose }) => {
                     <div className="menu-item" onClick={() => { navigate('/downloads'); onClose(); }}>
                         <Download size={24} />
                         <span>Downloads</span>
+                    </div>
+                    {/* Admin Dashboard Access */}
+                    <div className="menu-item" onClick={() => { navigate('/admin'); onClose(); }}>
+                        <Database size={24} color="#fbbf24" />
+                        <span style={{color: '#fbbf24'}}>Admin Dashboard</span>
                     </div>
 
                     <div className="menu-item mt-auto" onClick={handleSignOut}>

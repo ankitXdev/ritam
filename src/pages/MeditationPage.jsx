@@ -1,29 +1,43 @@
-import React, { useState } from 'react';
-import { Menu, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Menu, Search, Loader2 } from 'lucide-react';
 import BottomNavigation from '../components/BottomNavigation';
 import Sidebar from '../components/Sidebar';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
+import { useAudio } from '../context/AudioContext';
 import '../App.css';
 
 function MeditationPage() {
+    const { playTrack } = useAudio();
     const [activeFilter, setActiveFilter] = useState('All');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [meditations, setMeditations] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const filters = ['All', 'Popular', 'Beginners', 'Advanced', 'Sleep', 'Anxiety'];
 
-    const tools = [
-        { title: "Yoga Nidra", time: "20 Mins", colorClass: "img-galaxy-blue" },
-        { title: "Transforming Emotions", time: "20 Mins", colorClass: "img-moon-curve" },
-        { title: "Panchakosha", time: "17 Mins", colorClass: "img-teal-spiral" },
-        { title: "Back to the Source", time: "7 Mins", colorClass: "img-burst-purple" },
-        { title: "Journey Within", time: "20 Mins", colorClass: "img-green-lotus" },
-        { title: "Hari Om", time: "23 Mins", colorClass: "img-orange-om" },
-        { title: "Sound to Silence", time: "21 Mins", colorClass: "img-light-purple-flower" },
-        { title: "De-Stress", time: "7 Mins", colorClass: "img-blue-landscape" },
-        { title: "Blossom in Your Smile", time: "16 Mins", colorClass: "img-pink-flower" },
-        { title: "Aura", time: "27 Mins", colorClass: "img-blue-aura" },
-        { title: "Gratitude", time: "15 Mins", colorClass: "img-pink-mandala" },
-        { title: "Contentment", time: "20 Mins", colorClass: "img-sunset-orange" },
-    ];
+    useEffect(() => {
+        const fetchMeditations = async () => {
+            try {
+                const querySnapshot = await getDocs(collection(db, "meditations"));
+                const toolsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setMeditations(toolsData);
+            } catch (error) {
+                console.error("Error fetching meditations:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchMeditations();
+    }, []);
+
+    const filteredTools = meditations.filter(tool => {
+        const matchesFilter = activeFilter === 'All' || (tool.categories && tool.categories.includes(activeFilter));
+        const matchesSearch = tool.title.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesFilter && matchesSearch;
+    });
 
     return (
         <div className="app meditation-page">
@@ -35,7 +49,13 @@ function MeditationPage() {
                 </button>
                 <div className="search-bar">
                     <Search size={20} className="search-icon" />
-                    <input type="text" placeholder="Search" className="search-input" />
+                    <input 
+                        type="text" 
+                        placeholder="Search" 
+                        className="search-input" 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                 </div>
             </header>
 
@@ -92,17 +112,38 @@ function MeditationPage() {
 
                 {/* Meditation Grid */}
                 <section className="section-container">
-                    <div className="meditation-grid">
-                        {tools.map((tool, index) => (
-                            <div className="meditation-grid-card" key={index}>
-                                <div className={`grid-card-bg ${tool.colorClass}`}></div>
-                                <div className="grid-card-content">
-                                    <span className="time-badge">{tool.time}</span>
-                                    <h4 className="grid-card-title">{tool.title}</h4>
+                    {loading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+                            <Loader2 className="animate-spin" size={32} color="white" />
+                        </div>
+                    ) : filteredTools.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.6)' }}>
+                            <p>No meditations found.</p>
+                        </div>
+                    ) : (
+                        <div className="meditation-grid">
+                            {filteredTools.map((tool) => (
+                                <div 
+                                    className="meditation-grid-card" 
+                                    key={tool.id}
+                                    onClick={() => playTrack({
+                                        id: tool.id,
+                                        title: tool.title,
+                                        subtitle: tool.subtitle || 'Guided Meditation',
+                                        audioUrl: tool.audioUrl || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', // Fallback for testing
+                                        imageUrl: tool.imageUrl
+                                    })}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    <div className={`grid-card-bg ${tool.colorClass}`}></div>
+                                    <div className="grid-card-content">
+                                        <span className="time-badge">{tool.time}</span>
+                                        <h4 className="grid-card-title">{tool.title}</h4>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </section>
 
                 <div className="spacer-bottom"></div>
@@ -114,3 +155,4 @@ function MeditationPage() {
 }
 
 export default MeditationPage;
+
